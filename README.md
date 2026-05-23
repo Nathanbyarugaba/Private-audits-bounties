@@ -1,2 +1,3 @@
 # Private-audits-bounties
-I have found vulnerabilities in  Chainflip, 1 inch, Conflux, Celestia, Namada etc....
+Discloure: 
+All the vulnerabilities in here have were already fixed and are no longer present.
