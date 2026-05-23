@@ -1,2 +1,2 @@
 # Private-audits-bounties
-I have found vulnerabilities in Sui protocol, Chainflip, 1 inch, Conflux, Celestia, Namada etc.
+I have found vulnerabilities in  Chainflip, 1 inch, Conflux, Celestia, Namada etc....
