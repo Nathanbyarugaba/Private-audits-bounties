@@ -1,25 +1,30 @@
-Remote node crash
+**Remote node crash**
 
-Remote DoS via `sui_devInspectTransactionBlock` (panic in gas smashing)
+**Remote DoS via `sui_devInspectTransactionBlock` (panic in gas smashing)**
+
 Created on January 27, 2026
 
 Target
 https://github.com/MystenLabs/sui/tree/testnet/crates/sui-core 
 Protocol
 Vulnerability details
-File Location
+
+##File Location
 
 crates/sui-core/src/authority.rs Lines 2711-2731
 crates/sui-transaction-checks/src/lib.rs Lines 157-193
 sui-execution/latest/sui-adapter/src/gas_charger.rs Lines 154-194
 sui-execution/latest/sui-adapter/src/execution_engine.rs Line 337
-Description
+
+##Description
+
 sui_devInspectTransactionBlock allows the caller to provide additionalArgs.gasObjects (gas payment object refs). In the default dev-inspect configuration, the fullnode accepts these refs without validating that they are gas coins. During execution, the gas subsystem assumes the provided payment objects are gas coins and contains panic paths for invariant violations. As a result, a remote caller can trigger a panic by passing any existing non-gas object as a “gas object”.
 Depending on build/runtime configuration (e.g., panic=abort vs unwind) and how the JSON-RPC runtime handles panics, this can:
 Crash the process (worst case), or
 Kill the handler task / worker thread repeatedly (degraded availability).
 
-Attack Path (high level)
+##Attack Path (high level)
+
 Entry point: JSON-RPC method sui_devInspectTransactionBlock (Write API).
 Precondition: Fullnode exposes JSON-RPC publicly (default bind is 0.0.0.0:9000 unless overridden).
 Exploit:
@@ -27,7 +32,8 @@ Caller sets additionalArgs.skipChecks=true (or omits it; server defaults skip_ch
 Caller supplies at least one existing on-chain non-gas object in additionalArgs.gasObjects (e.g., a package object ref, NFT object ref, etc.).
 Execution reaches gas handling (GasCharger::smash_gas and/or later gas mutation), which can panic! on non-gas inputs.
 
-Root cause (code-level)
+##Root cause (code-level)
+
 AuthorityState::dev_inspect_transaction_block defaults:
 skip_checks = skip_checks.unwrap_or(true) and uses check_dev_inspect_input when true.
 check_dev_inspect_input explicitly “bypasses many of the normal object checks” and does not verify gas objects are gas coins.
@@ -56,9 +62,7 @@ This repo now contains in-process proof tests that demonstrate the panic conditi
 1) Runnable PoV test
 This unit test directly demonstrates the invariant panic in the gas layer by supplying a non-gas Move object as a “gas coin”:
 
-rust
-Copy
- 
+```rust
  #[cfg(test)]
     mod tests {
         use super::*;
@@ -149,3 +153,4 @@ Copy
         }
     }
 }
+```
