@@ -5,19 +5,21 @@ https://github.com/near/nearcore
 
 Protocol
 
-##Vulnerability details
+**Vulnerability details**
 
 File Location:
+```
 core/primitives/src/transaction.rs:L153-L214: custom impl BorshDeserialize for Transaction.
 core/primitives/src/transaction.rs:L168-L173: attacker-controlled str_len is used in Vec::with_capacity(str_len as usize) before reading bytes.
 Network reachability (peer-provided bytes): chain/network/src/network_protocol/proto_conv/peer_message.rs:L519-L521 (SignedTransaction::try_from_slice(&t.borsh)).
 Proof-of-code test (portable): core/primitives/src/transaction.rs:L851-L909 (poc_f02_transaction_deserialize_allocates_on_length_prefix).
+```
 
-##Summary
+**Summary**
 
 The custom Transaction deserializer reads 4 bytes as a little-endian str_len and immediately performs Vec::with_capacity(str_len). A malicious peer can craft those 4 bytes to request a huge allocation before providing the corresponding data, causing memory exhaustion/DoS.
 
-##Finding Description
+
 
 In Transaction::deserialize_reader:
 
@@ -27,7 +29,7 @@ Vec::with_capacity(str_len as usize) is called immediately.
 Only after allocation does it attempt to read str_len bytes.
 The comment states an account id is at most 64 bytes, but the code does not enforce that bound prior to allocation.
 
-##Impact Explanation
+**Impact Explanation**
 
 
 Remote memory exhaustion / crash: the allocation size is attacker-controlled and can be very large.
@@ -39,8 +41,7 @@ The allocation happens before any validation of the claimed string length.
 Attackers can craft u2 == 0 to force the V0 deserialization branch while setting a huge str_len via u3/u4.
 
 
-##Recommendation
-
+**Recommendation**
 Fix approach
 Enforce a strict bound on str_len before allocating (based on protocol/account-id rules; at minimum the stated “≤ 64 bytes”).
 Avoid Vec::with_capacity(huge) by using try_reserve (and map allocation failure into InvalidData) even after bounds checks.
