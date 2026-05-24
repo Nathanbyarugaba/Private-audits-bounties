@@ -4,7 +4,8 @@
 Created on November 17, 2025
 
 Location: src/instructions/XYCConcentrate.sol
-##Description
+
+**Description**
 The _updateScales function updates the deltaScale with an inverted formula that breaks the concentrated liquidity invariant. According to invariant 10, the scaled invariant should remain constant:
 
 ```solidity
