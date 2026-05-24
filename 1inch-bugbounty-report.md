@@ -1,20 +1,19 @@
-Inverted scale update formula in concentrated liquidity breaks invariant allowing economic exploitation
+**Inverted scale update formula in concentrated liquidity breaks invariant allowing economic exploitation**
+
+
 Created on November 17, 2025
 
-Vulnerability details
 Location: src/instructions/XYCConcentrate.sol
-Description
+##Description
 The _updateScales function updates the deltaScale with an inverted formula that breaks the concentrated liquidity invariant. According to invariant 10, the scaled invariant should remain constant:
 
-solidity
-Copy
+```solidity
 prevScale * (balanceIn_before * balanceOut_before) == newScale * ((balanceIn_before + amountIn) * (balanceOut_before - amountOut))
 This means: newScale = prevScale * inv / newInv
-
+```
 However, the implementation does the opposite
 
-solidity
-Copy
+```solidity
 function _updateScales(Context memory ctx) private {
     require(ctx.swap.amountIn > 0 && ctx.swap.amountOut > 0, ConcentrateExpectedSwapAmountComputationAfterRunLoop(ctx.swap.amountIn, ctx.swap.amountOut));
 
@@ -24,13 +23,14 @@ function _updateScales(Context memory ctx) private {
         deltaScales[ctx.query.orderHash] = deltaScale(ctx.query.orderHash) * newInv / inv;
     }
 }
+```
+
 The code computes newScale = prevScale * newInv / inv, which is the inverse of the required formula. This causes the scale to grow instead of shrink as liquidity is consumed. Since concentrated balance is calculated as balance + delta * deltaScale(orderHash) / ONE, an erroneously growing scale leads to artificially inflated liquidity. This breaks the economic model of concentrated liquidity and could allow the order to provide more tokens than the maker actually holds or intended to provide.
 
-Mathematical Proof
+##Mathematical Proof
 Invariant Requirement
 The concentrated liquidity system maintains a scaled invariant that must remain constant:
-
-Copy
+```
 prevScale * inv == newScale * newInv
 Where:
 
@@ -39,16 +39,15 @@ newInv = (balanceIn_before + amountIn) * (balanceOut_before - amountOut) (invari
 Derivation of Correct Formula
 Starting from the invariant:
 
-Copy
+C
 prevScale * inv = newScale * newInv
 Solving for newScale:
 
-Copy
+=
 newScale = (prevScale * inv) / newInv
 Analysis of Current (Buggy) Formula
 The current implementation computes:
-
-Copy
+=
 newScale = prevScale * newInv / inv  //  INVERTED
 Impact Analysis
 When liquidity is consumed (swap with fees):
@@ -66,15 +65,14 @@ inv = 1000e18 * 2000e18 = 2e24
 newInv = 1010e18 * 1990e18 = 2.0099e24 (after swap with fees)
 Correct formula:
 
-Copy
 newScale = 1e18 * 2e24 / 2.0099e24 = 0.99507e18  ✓ (shrinks)
 Buggy formula:
 
-Copy
+
 newScale = 1e18 * 2.0099e24 / 2e24 = 1.00495e18  ✗ (grows)
 The buggy formula causes the scale to grow by ~0.5% when it should shrink by ~0.5%.
-
-Impact
+```
+##Impact
 1. Invariant Violation
 The scaled invariant prevScale * inv == newScale * newInv is broken. In test cases:
 
@@ -109,8 +107,7 @@ Validation steps
 I have attached the runnable proof of code PoC.md.
 
 Complete Fixed Function
-solidity
-Copy
+```solidity
 function _updateScales(Context memory ctx) private {
     require(ctx.swap.amountIn > 0 && ctx.swap.amountOut > 0, ConcentrateExpectedSwapAmountComputationAfterRunLoop(ctx.swap.amountIn, ctx.swap.amountOut));
 
@@ -120,3 +117,4 @@ function _updateScales(Context memory ctx) private {
         deltaScales[ctx.query.orderHash] = deltaScale(ctx.query.orderHash) * inv / newInv;  // ✓ FIXED
     }
 }
+```
